@@ -32,6 +32,9 @@ class CatBotListener(tweepy.streaming.StreamListener):
         if any((pattern.search(status.text) for pattern in self.PATTERNS)):
             self.reply_with_cat(status)
 
+    def on_friends(self, friends):
+        self.follow_all()
+
     def reply_with_cat(self, status):
         catpic_url = get_random_catpic_url()
         f = BytesIO(requests.get(catpic_url).content)
@@ -41,6 +44,14 @@ class CatBotListener(tweepy.streaming.StreamListener):
             in_reply_to_stauts_id=status.id,
             media_ids=(media_id,)
         )
+
+    def follow_all(self):
+        friends = list(tweepy.Cursor(self.api.friends_ids).items())
+
+        for follower_id in tweepy.Cursor(self.api.followers_ids).items():
+            if follower_id not in friends:
+                print(follower_id)
+                self.api.create_friendship(follower_id)
 
 
 def get_random_catpic_url():
@@ -57,7 +68,9 @@ def main():
     auth.set_access_token(ACCESS_KEY, ACCESS_SECRET)
 
     api = tweepy.API(auth)
+
     catbot_listener = CatBotListener(api)
+    catbot_listener.follow_all()
 
     stream = tweepy.Stream(auth, catbot_listener)
     while True:

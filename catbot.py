@@ -60,7 +60,13 @@ def main():
     catbot_listener = CatBotListener(api)
 
     stream = tweepy.Stream(auth, catbot_listener)
-    stream.userstream()
+    while True:
+        try:
+            stream.userstream()
+        except KeyboardInterrupt:
+            break
+        except:
+            continue
 
 
 def test():

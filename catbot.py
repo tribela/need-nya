@@ -18,7 +18,7 @@ GIPHY_API_KEY = os.getenv('GIPHY_API_KEY')
 class CatBotListener(tweepy.streaming.StreamListener):
     PATTERNS = [
         re.compile(r'(?:고양이|야옹이|냐옹이|냥이).*필요'),
-        re.compile(r'우울해|냐짤|죽고\s*싶[어다]'),
+        re.compile(r'우울[해하]|냐짤|죽고\s*싶[어다]'),
     ]
 
     def __init__(self, api):

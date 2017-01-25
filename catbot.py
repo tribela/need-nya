@@ -28,6 +28,10 @@ class CatBotListener(tweepy.streaming.StreamListener):
         super(CatBotListener, self).__init__()
         self.api = api
 
+    def on_connect(self):
+        super().on_connect()
+        self.follow_all()
+
     def on_status(self, status):
         if hasattr(status, 'retweeted_status'):
             return
@@ -36,6 +40,7 @@ class CatBotListener(tweepy.streaming.StreamListener):
             self.reply_with_cat(status)
 
     def on_friends(self, friends):
+        logger.info('Friends notification')
         self.follow_all()
 
     def reply_with_cat(self, status):
@@ -63,8 +68,11 @@ class CatBotListener(tweepy.streaming.StreamListener):
 
         for follower_id in tweepy.Cursor(self.api.followers_ids).items():
             if follower_id not in friends:
-                logger.info(follower_id)
-                self.api.create_friendship(follower_id)
+                logger.info('Follow {}'.format(follower_id))
+                try:
+                    self.api.create_friendship(follower_id)
+                except Exception as e:
+                    print(str(e))
 
 
 def get_random_catpic_url():
@@ -93,16 +101,16 @@ def main():
     api = tweepy.API(auth)
 
     catbot_listener = CatBotListener(api)
-    catbot_listener.follow_all()
-
     stream = tweepy.Stream(auth, catbot_listener)
+
     while True:
         try:
             logger.info('Starting')
             stream.userstream()
         except KeyboardInterrupt:
             break
-        except:
+        except Exception as e:
+            print(str(e))
             continue
 
 

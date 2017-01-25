@@ -39,9 +39,18 @@ class CatBotListener(tweepy.streaming.StreamListener):
         if any((pattern.search(status.text) for pattern in self.PATTERNS)):
             self.reply_with_cat(status)
 
-    def on_friends(self, friends):
-        logger.info('Friends notification')
-        self.follow_all()
+    def on_event(self, status):
+        super().on_event(status)
+        if status.event == 'follow':
+            user = tweepy.User.parse(self.api, status.source)
+            if user == self.api.me():
+                return
+            logger.info('Follow back new follower {}(@{}).'.format(
+                user.name, user.screen_name))
+            try:
+                self.api.create_friendship(id=user.id)
+            except Exception as e:
+                print(str(e))
 
     def reply_with_cat(self, status):
         catpic_url = get_random_catpic_url()

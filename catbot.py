@@ -1,3 +1,4 @@
+import logging
 import os
 import re
 
@@ -13,6 +14,8 @@ ACCESS_KEY = os.getenv('TWITTER_ACCESS_KEY')
 ACCESS_SECRET = os.getenv('TWITTER_ACCESS_SECRET')
 
 GIPHY_API_KEY = os.getenv('GIPHY_API_KEY')
+
+logger = logging.getLogger(__name__)
 
 
 class CatBotListener(tweepy.streaming.StreamListener):
@@ -60,7 +63,7 @@ class CatBotListener(tweepy.streaming.StreamListener):
 
         for follower_id in tweepy.Cursor(self.api.followers_ids).items():
             if follower_id not in friends:
-                print(follower_id)
+                logger.info(follower_id)
                 self.api.create_friendship(follower_id)
 
 
@@ -73,7 +76,17 @@ def get_random_catpic_url():
     return url
 
 
+def set_logger():
+    logging.basicConfig(
+            format='%(asctime)s {%(module)s:%(levelname)s}: %(message)s',
+            datefmt='%Y-%m-%d %H:%M:%S'
+    )
+    logger.setLevel(logging.INFO)
+
+
 def main():
+    set_logger()
+
     auth = tweepy.OAuthHandler(CONSUMER_KEY, CONSUMER_SECRET)
     auth.set_access_token(ACCESS_KEY, ACCESS_SECRET)
 
@@ -85,6 +98,7 @@ def main():
     stream = tweepy.Stream(auth, catbot_listener)
     while True:
         try:
+            logger.info('Starting')
             stream.userstream()
         except KeyboardInterrupt:
             break

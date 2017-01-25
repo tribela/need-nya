@@ -40,10 +40,20 @@ class CatBotListener(tweepy.streaming.StreamListener):
         f = BytesIO(requests.get(catpic_url).content)
         media_id = self.api.media_upload('giphy.gif', file=f).media_id
         self.api.update_status(
-            status='@{dest.screen_name}'.format(dest=status.user),
+            status='@{dest.screen_name} {mentions}'.format(
+                dest=status.user,
+                mentions=' '.join(self.extract_mentions(status))
+            ),
             in_reply_to_stauts_id=status.id,
             media_ids=(media_id,)
         )
+
+    def extract_mentions(self, status):
+        pattern = re.compile(r'@\w+')
+        mentions = set(pattern.findall(status.text))
+        my_name = self.api.me().screen_name
+        dst_name = status.user.screen_name
+        return mentions - {'@'+name for name in (my_name, dst_name)}
 
     def follow_all(self):
         friends = list(tweepy.Cursor(self.api.friends_ids).items())

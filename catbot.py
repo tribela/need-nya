@@ -37,7 +37,8 @@ class CatBotListener(tweepy.streaming.StreamListener):
         if hasattr(status, 'retweeted_status'):
             return
 
-        if any((pattern.search(status.text) for pattern in self.PATTERNS)):
+        if any((pattern.search(status.text) for pattern in self.PATTERNS)) or\
+           self.is_mentioning_me(status):
             self.reply_with_cat(status)
 
     def on_event(self, status):
@@ -72,6 +73,9 @@ class CatBotListener(tweepy.streaming.StreamListener):
         my_name = self.me.screen_name
         dst_name = status.user.screen_name
         return mentions - {'@'+name for name in (my_name, dst_name)}
+
+    def is_mentioning_me(self, status):
+        return self.me.id in (x['id'] for x in status.entities['user_mentions'])
 
     def follow_all(self):
         friends = list(tweepy.Cursor(self.api.friends_ids).items())

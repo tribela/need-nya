@@ -51,7 +51,7 @@ class CatBotListener(tweepy.streaming.StreamListener):
             try:
                 self.api.create_friendship(id=user.id)
             except Exception as e:
-                print(str(e))
+                logger.error(str(e))
 
     def reply_with_cat(self, status):
         catpic_url = get_random_catpic_url()
@@ -120,7 +120,7 @@ def main():
         except KeyboardInterrupt:
             break
         except Exception as e:
-            print(str(e))
+            logger.error(str(e))
             continue
 
 

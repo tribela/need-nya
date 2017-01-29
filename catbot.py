@@ -27,6 +27,7 @@ class CatBotListener(tweepy.streaming.StreamListener):
     def __init__(self, api):
         super(CatBotListener, self).__init__()
         self.api = api
+        self.me = api.me()
 
     def on_connect(self):
         super().on_connect()
@@ -43,7 +44,7 @@ class CatBotListener(tweepy.streaming.StreamListener):
         super().on_event(status)
         if status.event == 'follow':
             user = tweepy.User.parse(self.api, status.source)
-            if user == self.api.me():
+            if user == self.me:
                 return
             logger.info('Follow back new follower {}(@{}).'.format(
                 user.name, user.screen_name))
@@ -68,7 +69,7 @@ class CatBotListener(tweepy.streaming.StreamListener):
     def extract_mentions(self, status):
         pattern = re.compile(r'@\w+')
         mentions = set(pattern.findall(status.text))
-        my_name = self.api.me().screen_name
+        my_name = self.me.screen_name
         dst_name = status.user.screen_name
         return mentions - {'@'+name for name in (my_name, dst_name)}
 

@@ -55,9 +55,14 @@ class CatBotListener(tweepy.streaming.StreamListener):
                 logger.error(str(e))
 
     def reply_with_cat(self, status):
-        catpic_url = get_random_catpic_url()
-        f = BytesIO(requests.get(catpic_url).content)
-        media_id = self.api.media_upload('giphy.gif', file=f).media_id
+        catpic = get_random_catpic()
+        try:
+            f = BytesIO(requests.get(catpic['image_url']).content)
+            media_id = self.api.media_upload('giphy.gif', file=f).media_id
+        except tweepy.error.TweepError:
+            f = BytesIO(requests.get(
+                catpic['fixed_height_downsampled_url']).content)
+            media_id = self.api.media_upload('giphy.gif', file=f).media_id
         self.api.update_status(
             status='@{dest.screen_name} {mentions}'.format(
                 dest=status.user,
@@ -89,12 +94,12 @@ class CatBotListener(tweepy.streaming.StreamListener):
                     logger.error(str(e))
 
 
-def get_random_catpic_url():
+def get_random_catpic():
     json_result = requests.get('http://api.giphy.com/v1/gifs/random', params={
         'api_key': GIPHY_API_KEY,
         'tag': 'cat',
     }).json()
-    url = json_result['data']['image_url']
+    url = json_result['data']
     return url
 
 
@@ -132,7 +137,7 @@ def test():
     auth = tweepy.OAuthHandler(CONSUMER_KEY, CONSUMER_SECRET)
     auth.set_access_token(ACCESS_KEY, ACCESS_SECRET)
     api = tweepy.API(auth)
-    catpic_url = get_random_catpic_url()
+    catpic_url = get_random_catpic()['image_url']
     f = BytesIO(requests.get(catpic_url).content)
     media_id = api.media_upload('giphy.gif', file=f).media_id
     api.update_status(

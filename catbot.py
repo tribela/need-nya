@@ -82,13 +82,13 @@ class CatBotListener(tweepy.streaming.StreamListener):
                 try:
                     self.api.create_friendship(follower_id)
                 except Exception as e:
-                    print(str(e))
+                    logger.error(str(e))
 
 
 def get_random_catpic_url():
-    json_result = requests.get('http://api.giphy.com/v1/gifs/random', {
+    json_result = requests.get('http://api.giphy.com/v1/gifs/random', params={
         'api_key': GIPHY_API_KEY,
-        'tag': 'cat'
+        'tag': 'cat',
     }).json()
     url = json_result['data']['image_url']
     return url

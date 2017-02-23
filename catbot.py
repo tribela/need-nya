@@ -64,11 +64,9 @@ class CatBotListener(tweepy.streaming.StreamListener):
                 catpic['fixed_height_downsampled_url']).content)
             media_id = self.api.media_upload('giphy.gif', file=f).media_id
         self.api.update_status(
-            status='@{dest.screen_name} {mentions}'.format(
-                dest=status.user,
-                mentions=' '.join(self.extract_mentions(status))
-            ),
-            in_reply_to_stauts_id=status.id,
+            status='',
+            in_reply_to_status_id=status.id,
+            auto_populate_reply_metadata=True,
             media_ids=(media_id,)
         )
 

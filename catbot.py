@@ -19,10 +19,9 @@ logger = logging.getLogger(__name__)
 
 
 class CatBotListener(tweepy.streaming.StreamListener):
-    PATTERNS = [
-        re.compile(r'(?:고양이|야옹이|냐옹이|냥이).*필요'),
-        re.compile(r'우울[해하]|냐짤|죽고\s*싶[어다]|살기\s*싫[어다]'),
-    ]
+    PATTERN = re.compile(
+        r'(?:고양이|야옹이|냐옹이|냥이).*필요|'
+        r'우울[해하]|냐짤|죽고\s*싶[어다]|살기\s*싫[어다]')
 
     def __init__(self, api):
         super(CatBotListener, self).__init__()
@@ -37,8 +36,7 @@ class CatBotListener(tweepy.streaming.StreamListener):
         if hasattr(status, 'retweeted_status'):
             return
 
-        if any((pattern.search(status.text) for pattern in self.PATTERNS)) or\
-           self.is_mentioning_me(status):
+        if self.PATTERN.search(status.text) or self.is_mentioning_me(status):
             self.reply_with_cat(status)
 
     def on_event(self, status):

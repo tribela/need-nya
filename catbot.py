@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 class CatBotListener(tweepy.streaming.StreamListener):
     PATTERN = re.compile(
         r'(?:고양이|야옹이|냐옹이|냥이).*필요|'
-        r'우울[해하]|냐짤|죽고\s*싶[어다]|살기\s*싫[어다]')
+        r'우울[해하]|냐짤|(?:죽고\s*싶|살기\s*싫)[어네다]')
 
     def __init__(self, api):
         super(CatBotListener, self).__init__()

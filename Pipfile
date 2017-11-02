@@ -10,6 +10,8 @@ name = "pypi"
 requests = "*"
 textblob = "*"
 tweepy = "*"
+"mastodon.py" = "*"
+lxml = "*"
 
 
 [dev-packages]

@@ -1,11 +1,15 @@
+import functools
 import logging
 import logging.config
+import mimetypes
 import os
 import re
 import time
 
 from io import BytesIO
 
+from lxml import html
+import mastodon
 import requests
 import tweepy
 
@@ -14,6 +18,12 @@ TWITTER_CONSUMER_KEY = os.getenv('TWITTER_CONSUMER_KEY')
 TWITTER_CONSUMER_SECRET = os.getenv('TWITTER_CONSUMER_SECRET')
 TWITTER_ACCESS_KEY = os.getenv('TWITTER_ACCESS_KEY')
 TWITTER_ACCESS_SECRET = os.getenv('TWITTER_ACCESS_SECRET')
+
+MASTODON_API_BASE_URL = os.getenv('MASTODON_API_BASE_URL')
+MASTODON_CLIENT_KEY = os.getenv('MASTODON_CLIENT_KEY')
+MASTODON_CLIENT_SECRET = os.getenv('MASTODON_CLIENT_SECRET')
+MASTODON_ACCESS_TOKEN = os.getenv('MASTODON_ACCESS_TOKEN')
+
 
 GIPHY_API_KEY = os.getenv('GIPHY_API_KEY')
 
@@ -95,6 +105,111 @@ class CatBotTwitterListener(tweepy.streaming.StreamListener):
                     self.logger.error(str(e))
 
 
+class CatBotMastodonListener(mastodon.StreamListener):
+
+    def __init__(self, api: mastodon.Mastodon):
+        super().__init__()
+        self.api = api
+        self.logger = logging.getLogger('catbot-mastodon')
+        me = self.api.account_verify_credentials()
+        self.logger.info(f'I am {me["acct"]}')
+
+    def on_update(self, status):
+        super().on_update(status)
+        self.handle_status(status)
+
+    def on_notification(self, notification):
+        super().on_notification(notification)
+
+        if notification['type'] == 'follow':
+            try:
+                account = notification['account']
+                self.logger.info(f'Follow {account["acct"]}')
+                self.api.account_follow(account['id'])
+            except Exception as e:  # TODO: change this to MastodonError after Mastodon.py release.
+                self.logger.error(e)
+        elif notification['type'] == 'mention':
+            account = notification['account']
+            status = notification['status']
+            self.logger.info(f'{account["acct"]} mentioned me')
+            content = self.get_plain_content(status)
+
+            if content == 'follow':
+                self.logger.info(f'Follow {account["acct"]} by mention')
+                self.api.account_follow(account['id'])
+            elif content == 'unfolow':
+                self.logger.info(f'Unfollow {account["acct"]} by mention')
+                self.api.account_unfollow(account['id'])
+        else:
+            self.logger.debug(f'Unhandled notification type {notification["type"]}.')
+
+    def handle_status(self, status):
+        if status['reblogged']:
+            self.logger.debug('Skipping reblogged status.')
+            return
+
+        account = status['account']
+        content = self.get_plain_content(status)
+
+        self.logger.debug(f'{account["acct"]}: {content}')
+
+        matched = PATTERN.search(content)
+        if matched:
+            self.logger.info(f'Repling to {account["acct"]}')
+            self.reply_with_catpic(status)
+        else:
+            self.debug(f'Skip')
+
+    def reply_with_catpic(self, status):
+        catpic = get_random_catpic()
+        try:
+            url = catpic['image_url']
+            f = BytesIO(requests.get(url).content)
+            media = self.api.media_post(f, mimetypes.guess_type(url)[0])
+        except Exception as e:
+            self.logger.error(e)
+            url = catpic['fixed_height_downsampled_url']
+            f = BytesIO(requests.get(url).content)
+            media = self.api.media_post(f, mimetypes.guess_type(url)[0])
+
+        # Same privacy except for public.
+        visibility = status['visibility']
+        if visibility == 'public':
+            visibility = 'unlisted'
+
+        self.api.status_post(
+            'nya!',
+            in_reply_to_id=status['id'],
+            media_ids=(media,),
+            visibility=visibility
+        )
+
+    @staticmethod
+    def get_plain_content(status):
+        doc = html.fromstring(status['content'])
+        for link in doc.xpath('//a'):
+            link.drop_tree()
+
+        content = doc.text_content()
+        return content.strip()
+
+    @property
+    def user_stream(self):
+        return functools.partial(self.api.user_stream, self)
+
+    @property
+    def local_stream(self):
+        return functools.partial(self.api.local_stream, self)
+
+    @property
+    def public_stream(self):
+        return functools.partial(self.api.public_stream, self)
+
+    @property
+    def hashtag_stream(self):
+        return functools.partial(self.api.hastag_stream, self)
+
+
 def get_random_catpic():
     json_result = requests.get('http://api.giphy.com/v1/gifs/random', params={
         'api_key': GIPHY_API_KEY,
@@ -121,14 +236,35 @@ def make_twitter_stream():
         return twitter_stream
 
 
+def make_mastodon_stream():
+    try:
+        api = mastodon.Mastodon(
+            api_base_url=MASTODON_API_BASE_URL,
+            client_id=MASTODON_CLIENT_KEY,
+            client_secret=MASTODON_CLIENT_SECRET,
+            access_token=MASTODON_ACCESS_TOKEN
+        )
+        mastodon_stream = CatBotMastodonListener(api)
+    except Exception as e:
+        logger.error(e)
+    else:
+        return mastodon_stream
+
+
 def main():
     set_logger()
 
     twitter_stream = make_twitter_stream()
+    mastodon_stream = make_mastodon_stream()
 
     logger.info('Starting')
     if twitter_stream:
+        logger.info('Starting twitter bot')
         twitter_stream.userstream(async=True)
+
+    if mastodon_stream:
+        logger.info('Starting mastodon bot')
+        mastodon_handle = mastodon_stream.user_stream(async=True)
 
     while True:
         try:
@@ -137,7 +273,11 @@ def main():
             logger.info('Closing')
             break
 
-    twitter_stream.disconnect()
+    if twitter_stream:
+        twitter_stream.disconnect()
+
+    if mastodon_stream:
+        mastodon_handle.close()
 
 
 def test_twitter():

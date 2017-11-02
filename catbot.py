@@ -2,6 +2,7 @@ import logging
 import logging.config
 import os
 import re
+import time
 
 from io import BytesIO
 
@@ -9,35 +10,38 @@ import requests
 import tweepy
 
 
-CONSUMER_KEY = os.getenv('TWITTER_CONSUMER_KEY')
-CONSUMER_SECRET = os.getenv('TWITTER_CONSUMER_SECRET')
-ACCESS_KEY = os.getenv('TWITTER_ACCESS_KEY')
-ACCESS_SECRET = os.getenv('TWITTER_ACCESS_SECRET')
+TWITTER_CONSUMER_KEY = os.getenv('TWITTER_CONSUMER_KEY')
+TWITTER_CONSUMER_SECRET = os.getenv('TWITTER_CONSUMER_SECRET')
+TWITTER_ACCESS_KEY = os.getenv('TWITTER_ACCESS_KEY')
+TWITTER_ACCESS_SECRET = os.getenv('TWITTER_ACCESS_SECRET')
 
 GIPHY_API_KEY = os.getenv('GIPHY_API_KEY')
+
+PATTERN = re.compile(
+    r'(?:고양이|야옹이|냐옹이|냥이).*필요|'
+    r'우울[해하]|냐짤|(?:죽고\s*싶|살기\s*싫)[어네다]')
 
 logger = logging.getLogger(__name__)
 
 
-class CatBotListener(tweepy.streaming.StreamListener):
-    PATTERN = re.compile(
-        r'(?:고양이|야옹이|냐옹이|냥이).*필요|'
-        r'우울[해하]|냐짤|(?:죽고\s*싶|살기\s*싫)[어네다]')
+class CatBotTwitterListener(tweepy.streaming.StreamListener):
 
     def __init__(self, api):
-        super(CatBotListener, self).__init__()
+        super().__init__()
         self.api = api
         self.me = api.me()
+        self.logger = logging.getLogger('catbot-twitter')
 
     def on_connect(self):
         super().on_connect()
+        self.logger.debug('connected')
         self.follow_all()
 
     def on_status(self, status):
         if hasattr(status, 'retweeted_status'):
             return
 
-        if self.PATTERN.search(status.text) or self.is_mentioning_me(status):
+        if PATTERN.search(status.text) or self.is_mentioning_me(status):
             self.reply_with_cat(status)
 
     def on_event(self, status):
@@ -46,12 +50,12 @@ class CatBotListener(tweepy.streaming.StreamListener):
             user = tweepy.User.parse(self.api, status.source)
             if user == self.me:
                 return
-            logger.info('Follow back new follower {}(@{}).'.format(
+            self.logger.info('Follow back new follower {}(@{}).'.format(
                 user.name, user.screen_name))
             try:
                 self.api.create_friendship(id=user.id)
             except Exception as e:
-                logger.error(str(e))
+                self.logger.error(str(e))
 
     def reply_with_cat(self, status):
         catpic = get_random_catpic()
@@ -84,11 +88,11 @@ class CatBotListener(tweepy.streaming.StreamListener):
 
         for follower_id in tweepy.Cursor(self.api.followers_ids).items():
             if follower_id not in friends:
-                logger.info('Follow {}'.format(follower_id))
+                self.logger.info('Follow {}'.format(follower_id))
                 try:
                     self.api.create_friendship(follower_id)
                 except Exception as e:
-                    logger.error(str(e))
+                    self.logger.error(str(e))
 
 
 def get_random_catpic():
@@ -104,31 +108,41 @@ def set_logger():
     logging.config.fileConfig('logging.conf')
 
 
+def make_twitter_stream():
+    try:
+        twitter_auth = tweepy.OAuthHandler(TWITTER_CONSUMER_KEY, TWITTER_CONSUMER_SECRET)
+        twitter_auth.set_access_token(TWITTER_ACCESS_KEY, TWITTER_ACCESS_SECRET)
+        api = tweepy.API(twitter_auth)
+        catbot_listener = CatBotTwitterListener(api)
+        twitter_stream = tweepy.Stream(twitter_auth, catbot_listener)
+    except tweepy.TweepError as e:
+        logger.error(e)
+    else:
+        return twitter_stream
+
+
 def main():
     set_logger()
 
-    auth = tweepy.OAuthHandler(CONSUMER_KEY, CONSUMER_SECRET)
-    auth.set_access_token(ACCESS_KEY, ACCESS_SECRET)
+    twitter_stream = make_twitter_stream()
 
-    api = tweepy.API(auth)
-
-    catbot_listener = CatBotListener(api)
-    stream = tweepy.Stream(auth, catbot_listener)
+    logger.info('Starting')
+    if twitter_stream:
+        twitter_stream.userstream(async=True)
 
     while True:
         try:
-            logger.info('Starting')
-            stream.userstream()
-        except KeyboardInterrupt:
+            time.sleep(10)
+        except KeyboardInterrupt as e:
+            logger.info('Closing')
             break
-        except Exception as e:
-            logger.error(str(e))
-            continue
+
+    twitter_stream.disconnect()
 
 
-def test():
-    auth = tweepy.OAuthHandler(CONSUMER_KEY, CONSUMER_SECRET)
-    auth.set_access_token(ACCESS_KEY, ACCESS_SECRET)
+def test_twitter():
+    auth = tweepy.OAuthHandler(TWITTER_CONSUMER_KEY, TWITTER_CONSUMER_SECRET)
+    auth.set_access_token(TWITTER_ACCESS_KEY, TWITTER_ACCESS_SECRET)
     api = tweepy.API(auth)
     catpic_url = get_random_catpic()['image_url']
     f = BytesIO(requests.get(catpic_url).content)

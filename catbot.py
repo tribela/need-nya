@@ -115,12 +115,9 @@ class CatBotMastodonListener(mastodon.StreamListener):
         self.logger.info(f'I am {me["acct"]}')
 
     def on_update(self, status):
-        super().on_update(status)
         self.handle_status(status)
 
     def on_notification(self, notification):
-        super().on_notification(notification)
-
         if notification['type'] == 'follow':
             try:
                 account = notification['account']

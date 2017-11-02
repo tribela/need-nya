@@ -155,7 +155,7 @@ class CatBotMastodonListener(mastodon.StreamListener):
             self.logger.info(f'Repling to {account["acct"]}')
             self.reply_with_catpic(status)
         else:
-            self.debug(f'Skip')
+            self.logger.debug(f'Skip')
 
     def reply_with_catpic(self, status):
         catpic = get_random_catpic()

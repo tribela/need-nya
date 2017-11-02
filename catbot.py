@@ -1,4 +1,5 @@
 import logging
+import logging.config
 import os
 import re
 
@@ -100,11 +101,7 @@ def get_random_catpic():
 
 
 def set_logger():
-    logging.basicConfig(
-            format='%(asctime)s {%(module)s:%(levelname)s}: %(message)s',
-            datefmt='%Y-%m-%d %H:%M:%S'
-    )
-    logger.setLevel(logging.INFO)
+    logging.config.fileConfig('logging.conf')
 
 
 def main():

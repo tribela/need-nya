@@ -169,15 +169,18 @@ class CatBotMastodonListener(mastodon.StreamListener):
             f = BytesIO(requests.get(url).content)
             media = self.api.media_post(f, mimetypes.guess_type(url)[0])
 
-        account_name = status['account']['acct']
-
         # Same privacy except for public.
         visibility = status['visibility']
         if visibility == 'public':
             visibility = 'unlisted'
 
+        mentions = ' '.join(
+            f'@{user["acct"]}'
+            for user in [status['account']] + status['mentions']
+        )
+
         self.api.status_post(
-            f'@{account_name} nya!',
+            f'{mentions} nya!',
             in_reply_to_id=status['id'],
             media_ids=(media,),
             visibility=visibility

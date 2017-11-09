@@ -8,9 +8,8 @@ name = "pypi"
 [packages]
 
 requests = "*"
-textblob = "*"
 tweepy = "*"
-"mastodon.py" = "*"
+"Mastodon.py" = "*"
 lxml = "*"
 
 

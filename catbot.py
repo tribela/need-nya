@@ -111,8 +111,8 @@ class CatBotMastodonListener(mastodon.StreamListener):
         super().__init__()
         self.api = api
         self.logger = logging.getLogger('catbot-mastodon')
-        me = self.api.account_verify_credentials()
-        self.logger.info(f'I am {me["acct"]}')
+        self.me = self.api.account_verify_credentials()
+        self.logger.info(f'I am {self.me["acct"]}')
 
     def on_update(self, status):
         self.handle_status(status)
@@ -177,6 +177,7 @@ class CatBotMastodonListener(mastodon.StreamListener):
         mentions = ' '.join(
             f'@{user["acct"]}'
             for user in [status['account']] + status['mentions']
+            if user['acct'] != self.me['acct']
         )
 
         self.api.status_post(

@@ -269,8 +269,24 @@ def main():
         logger.info('Starting mastodon bot')
         mastodon_handle = mastodon_stream.user_stream(async=True)
 
+        # XXX: Monkey patch handle before PR merge
+        import threading
+        import types
+
+        def is_alive(self):
+            current_thread = threading.current_thread()
+            return current_thread.is_alive()
+
+        mastodon_handle.is_alive = types.MethodType(is_alive, mastodon_handle)
+
     while True:
         try:
+            if mastodon_stream and not mastodon_handle.is_alive():
+                mastodon_handle = mastodon_stream.user_stream(async=False)
+
+            if twitter_stream and not twitter_stream._thread.isAlive():
+                twitter_stream.userstream(async=False)
+
             time.sleep(10)
         except KeyboardInterrupt as e:
             logger.info('Closing')

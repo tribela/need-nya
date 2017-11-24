@@ -4,6 +4,7 @@ import logging.config
 import mimetypes
 import os
 import re
+import threading
 import time
 
 from io import BytesIO
@@ -254,6 +255,15 @@ def make_mastodon_stream():
         return mastodon_stream
 
 
+def is_mastodon_stream_alive():
+    # XXX: Hack to find thread before PR merged.
+    for thread in threading.enumerate():
+        if thread._target and thread._target.__name__ == '_threadproc':
+            return thread.is_alive()
+
+    return False
+
+
 def main():
     set_logger()
 
@@ -269,19 +279,10 @@ def main():
         logger.info('Starting mastodon bot')
         mastodon_handle = mastodon_stream.user_stream(async=True)
 
-        # XXX: Monkey patch handle before PR merge
-        import threading
-        import types
-
-        def is_alive(self):
-            current_thread = threading.current_thread()
-            return current_thread.is_alive()
-
-        mastodon_handle.is_alive = types.MethodType(is_alive, mastodon_handle)
-
     while True:
         try:
-            if mastodon_stream and not mastodon_handle.is_alive():
+            if mastodon_stream and not is_mastodon_stream_alive():
+                mastodon_handle.close()
                 mastodon_handle = mastodon_stream.user_stream(async=False)
 
             if twitter_stream and not twitter_stream._thread.isAlive():

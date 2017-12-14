@@ -282,10 +282,12 @@ def main():
     while True:
         try:
             if mastodon_stream and not is_mastodon_stream_alive():
+                logger.watning('Restart mastodon streaming.')
                 mastodon_handle.close()
                 mastodon_handle = mastodon_stream.user_stream(async=False)
 
             if twitter_stream and not twitter_stream._thread.isAlive():
+                logger.warning('Restart twitter streaming.')
                 twitter_stream.userstream(async=False)
 
             time.sleep(10)

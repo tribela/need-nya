@@ -4,8 +4,8 @@ import logging.config
 import mimetypes
 import os
 import re
+import sys
 import threading
-import time
 
 from io import BytesIO
 
@@ -265,41 +265,26 @@ def is_mastodon_stream_alive():
 
 
 def main():
+    try:
+        bot_type = sys.argv[1]
+    except IndexError:
+        logger.error('Specify running type')
+        exit(1)
+
     set_logger()
 
-    twitter_stream = make_twitter_stream()
-    mastodon_stream = make_mastodon_stream()
-
-    logger.info('Starting')
-    if twitter_stream:
+    if bot_type == 'twitter':
+        twitter_stream = make_twitter_stream()
         logger.info('Starting twitter bot')
-        twitter_stream.userstream(async=True)
+        twitter_stream.userstream()
 
-    if mastodon_stream:
+    elif bot_type == 'mastodon':
+        mastodon_stream = make_mastodon_stream()
         logger.info('Starting mastodon bot')
-        mastodon_handle = mastodon_stream.user_stream(async=True)
-
-    while True:
-        try:
-            if mastodon_stream and not is_mastodon_stream_alive():
-                logger.watning('Restart mastodon streaming.')
-                mastodon_handle.close()
-                mastodon_handle = mastodon_stream.user_stream(async=False)
-
-            if twitter_stream and not twitter_stream._thread.isAlive():
-                logger.warning('Restart twitter streaming.')
-                twitter_stream.userstream(async=False)
-
-            time.sleep(10)
-        except KeyboardInterrupt as e:
-            logger.info('Closing')
-            break
-
-    if twitter_stream:
-        twitter_stream.disconnect()
-
-    if mastodon_stream:
-        mastodon_handle.close()
+        mastodon_stream.user_stream()
+    else:
+        logger.error('Unknown type: {bot_type}')
+        exit(1)
 
 
 def test_twitter():

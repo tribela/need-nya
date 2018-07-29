@@ -190,6 +190,8 @@ class CatBotMastodonListener(mastodon.StreamListener):
 
     @staticmethod
     def get_plain_content(status):
+        if not status['content']:
+            return ''
         doc = html.fromstring(status['content'])
         for link in doc.xpath('//a'):
             link.drop_tree()

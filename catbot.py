@@ -62,7 +62,7 @@ class CatBotMastodonListener(mastodon.StreamListener):
             self.logger.debug(f'Unhandled notification type {notification["type"]}.')
 
     def handle_status(self, status):
-        if status['reblogged']:
+        if status['reblog'] is not None:
             self.logger.debug('Skipping reblogged status.')
             return
 

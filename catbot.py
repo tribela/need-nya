@@ -4,21 +4,12 @@ import logging.config
 import mimetypes
 import os
 import re
-import sys
-import threading
 
 from io import BytesIO
 
 from lxml import html
 import mastodon
 import requests
-import tweepy
-
-
-TWITTER_CONSUMER_KEY = os.getenv('TWITTER_CONSUMER_KEY')
-TWITTER_CONSUMER_SECRET = os.getenv('TWITTER_CONSUMER_SECRET')
-TWITTER_ACCESS_KEY = os.getenv('TWITTER_ACCESS_KEY')
-TWITTER_ACCESS_SECRET = os.getenv('TWITTER_ACCESS_SECRET')
 
 MASTODON_API_BASE_URL = os.getenv('MASTODON_API_BASE_URL')
 MASTODON_CLIENT_KEY = os.getenv('MASTODON_CLIENT_KEY')
@@ -33,77 +24,6 @@ PATTERN = re.compile(
     r'우울[해하한]|냐짤|(?:죽고\s*싶|살기\s*싫)[어네다]')
 
 logger = logging.getLogger(__name__)
-
-
-class CatBotTwitterListener(tweepy.streaming.StreamListener):
-
-    def __init__(self, api):
-        super().__init__()
-        self.api = api
-        self.me = api.me()
-        self.logger = logging.getLogger('catbot-twitter')
-
-    def on_connect(self):
-        super().on_connect()
-        self.logger.debug('connected')
-        self.follow_all()
-
-    def on_status(self, status):
-        if hasattr(status, 'retweeted_status'):
-            return
-
-        if PATTERN.search(status.text) or self.is_mentioning_me(status):
-            self.reply_with_cat(status)
-
-    def on_event(self, status):
-        super().on_event(status)
-        if status.event == 'follow':
-            user = tweepy.User.parse(self.api, status.source)
-            if user == self.me:
-                return
-            self.logger.info('Follow back new follower {}(@{}).'.format(
-                user.name, user.screen_name))
-            try:
-                self.api.create_friendship(id=user.id)
-            except Exception as e:
-                self.logger.error(str(e))
-
-    def reply_with_cat(self, status):
-        catpic = get_random_catpic()
-        try:
-            f = BytesIO(requests.get(catpic['image_url']).content)
-            media_id = self.api.media_upload('giphy.gif', file=f).media_id
-        except tweepy.error.TweepError:
-            f = BytesIO(requests.get(
-                catpic['fixed_height_downsampled_url']).content)
-            media_id = self.api.media_upload('giphy.gif', file=f).media_id
-        self.api.update_status(
-            status='',
-            in_reply_to_status_id=status.id,
-            auto_populate_reply_metadata=True,
-            media_ids=(media_id,)
-        )
-
-    def extract_mentions(self, status):
-        pattern = re.compile(r'@\w+')
-        mentions = set(pattern.findall(status.text))
-        my_name = self.me.screen_name
-        dst_name = status.user.screen_name
-        return mentions - {'@'+name for name in (my_name, dst_name)}
-
-    def is_mentioning_me(self, status):
-        return self.me.id in (x['id'] for x in status.entities['user_mentions'])
-
-    def follow_all(self):
-        friends = list(tweepy.Cursor(self.api.friends_ids).items())
-
-        for follower_id in tweepy.Cursor(self.api.followers_ids).items():
-            if follower_id not in friends:
-                self.logger.info('Follow {}'.format(follower_id))
-                try:
-                    self.api.create_friendship(follower_id)
-                except Exception as e:
-                    self.logger.error(str(e))
 
 
 class CatBotMastodonListener(mastodon.StreamListener):
@@ -162,11 +82,13 @@ class CatBotMastodonListener(mastodon.StreamListener):
         catpic = get_random_catpic()
         try:
             url = catpic['image_url']
+            self.logger.debug(url)
             f = BytesIO(requests.get(url).content)
             media = self.api.media_post(f, mimetypes.guess_type(url)[0])
         except Exception as e:
             self.logger.error(e)
             url = catpic['fixed_height_downsampled_url']
+            self.logger.debug(url)
             f = BytesIO(requests.get(url).content)
             media = self.api.media_post(f, mimetypes.guess_type(url)[0])
 
@@ -229,19 +151,6 @@ def set_logger():
     logging.config.fileConfig('logging.conf')
 
 
-def make_twitter_stream():
-    try:
-        twitter_auth = tweepy.OAuthHandler(TWITTER_CONSUMER_KEY, TWITTER_CONSUMER_SECRET)
-        twitter_auth.set_access_token(TWITTER_ACCESS_KEY, TWITTER_ACCESS_SECRET)
-        api = tweepy.API(twitter_auth)
-        catbot_listener = CatBotTwitterListener(api)
-        twitter_stream = tweepy.Stream(twitter_auth, catbot_listener)
-    except tweepy.TweepError as e:
-        logger.error(e)
-    else:
-        return twitter_stream
-
-
 def make_mastodon_stream():
     try:
         api = mastodon.Mastodon(
@@ -257,49 +166,12 @@ def make_mastodon_stream():
         return mastodon_stream
 
 
-def is_mastodon_stream_alive():
-    # XXX: Hack to find thread before PR merged.
-    for thread in threading.enumerate():
-        if thread._target and thread._target.__name__ == '_threadproc':
-            return thread.is_alive()
-
-    return False
-
-
 def main():
-    try:
-        bot_type = sys.argv[1]
-    except IndexError:
-        logger.error('Specify running type')
-        exit(1)
-
     set_logger()
 
-    if bot_type == 'twitter':
-        twitter_stream = make_twitter_stream()
-        logger.info('Starting twitter bot')
-        twitter_stream.userstream()
-
-    elif bot_type == 'mastodon':
-        mastodon_stream = make_mastodon_stream()
-        logger.info('Starting mastodon bot')
-        mastodon_stream.stream_user(reconnect_async=True)
-    else:
-        logger.error('Unknown type: {bot_type}')
-        exit(1)
-
-
-def test_twitter():
-    auth = tweepy.OAuthHandler(TWITTER_CONSUMER_KEY, TWITTER_CONSUMER_SECRET)
-    auth.set_access_token(TWITTER_ACCESS_KEY, TWITTER_ACCESS_SECRET)
-    api = tweepy.API(auth)
-    catpic_url = get_random_catpic()['image_url']
-    f = BytesIO(requests.get(catpic_url).content)
-    media_id = api.media_upload('giphy.gif', file=f).media_id
-    api.update_status(
-        status='',
-        media_ids=(media_id,)
-    )
+    mastodon_stream = make_mastodon_stream()
+    logger.info('Starting mastodon bot')
+    mastodon_stream.stream_user(reconnect_async=True)
 
 
 if __name__ == '__main__':

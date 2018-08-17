@@ -200,20 +200,20 @@ class CatBotMastodonListener(mastodon.StreamListener):
         return content.strip()
 
     @property
-    def user_stream(self):
-        return functools.partial(self.api.user_stream, self)
+    def stream_user(self):
+        return functools.partial(self.api.stream_user, self)
 
     @property
-    def local_stream(self):
-        return functools.partial(self.api.local_stream, self)
+    def stream_local(self):
+        return functools.partial(self.api.stream_local, self)
 
     @property
-    def public_stream(self):
-        return functools.partial(self.api.public_stream, self)
+    def stream_public(self):
+        return functools.partial(self.api.stream_public, self)
 
     @property
-    def hashtag_stream(self):
-        return functools.partial(self.api.hastag_stream, self)
+    def stream_hashtag(self):
+        return functools.partial(self.api.stream_hashtag, self)
 
 
 def get_random_catpic():
@@ -283,7 +283,7 @@ def main():
     elif bot_type == 'mastodon':
         mastodon_stream = make_mastodon_stream()
         logger.info('Starting mastodon bot')
-        mastodon_stream.user_stream()
+        mastodon_stream.stream_user(reconnect_async=True)
     else:
         logger.error('Unknown type: {bot_type}')
         exit(1)

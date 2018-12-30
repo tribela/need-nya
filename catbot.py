@@ -44,7 +44,7 @@ class CatBotMastodonListener(mastodon.StreamListener):
                 account = notification['account']
                 self.logger.info(f'Follow {account["acct"]}')
                 self.api.account_follow(account['id'])
-            except Exception as e:  # TODO: change this to MastodonError after Mastodon.py release.
+            except mastodon.MastodonError as e:
                 self.logger.error(e)
         elif notification['type'] == 'mention':
             account = notification['account']

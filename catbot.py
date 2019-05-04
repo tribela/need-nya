@@ -26,6 +26,10 @@ PATTERN = re.compile(
 logger = logging.getLogger(__name__)
 
 
+class ApiError(Exception):
+    pass
+
+
 class CatBotMastodonListener(mastodon.StreamListener):
 
     def __init__(self, api: mastodon.Mastodon):
@@ -79,7 +83,11 @@ class CatBotMastodonListener(mastodon.StreamListener):
             self.logger.debug(f'Skip')
 
     def reply_with_catpic(self, status):
-        catpic = get_random_catpic()
+        try:
+            catpic = get_random_catpic()
+        except ApiError as e:
+            logger.error(e)
+            return
         try:
             url = catpic['image_url']
             self.logger.debug(url)
@@ -139,10 +147,14 @@ class CatBotMastodonListener(mastodon.StreamListener):
 
 
 def get_random_catpic():
-    json_result = requests.get('http://api.giphy.com/v1/gifs/random', params={
+    resp = requests.get('http://api.giphy.com/v1/gifs/random', params={
         'api_key': GIPHY_API_KEY,
         'tag': 'cat',
-    }).json()
+    })
+    if not resp.ok:
+        raise ApiError(resp.json()['message'])
+
+    json_result = resp.json()
     url = json_result['data']
     return url
 

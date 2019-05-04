@@ -16,6 +16,10 @@ MASTODON_CLIENT_KEY = os.getenv('MASTODON_CLIENT_KEY')
 MASTODON_CLIENT_SECRET = os.getenv('MASTODON_CLIENT_SECRET')
 MASTODON_ACCESS_TOKEN = os.getenv('MASTODON_ACCESS_TOKEN')
 
+DEBUG_MODE = 'DEBUG_MODE' in os.environ
+if DEBUG_MODE:
+    from pprint import pprint
+
 
 GIPHY_API_KEY = os.getenv('GIPHY_API_KEY')
 
@@ -111,12 +115,15 @@ class CatBotMastodonListener(mastodon.StreamListener):
             if user['acct'] != self.me['acct']
         )
 
-        self.api.status_post(
-            f'{mentions} nya!',
-            in_reply_to_id=status['id'],
-            media_ids=(media,),
-            visibility=visibility
-        )
+        if DEBUG_MODE:
+            pprint(status['id'])
+        else:
+            self.api.status_post(
+                f'{mentions} nya!',
+                in_reply_to_id=status['id'],
+                media_ids=(media,),
+                visibility=visibility
+            )
 
     @staticmethod
     def get_plain_content(status):
@@ -160,7 +167,10 @@ def get_random_catpic():
 
 
 def set_logger():
-    logging.config.fileConfig('logging.conf')
+    if DEBUG_MODE:
+        logging.config.fileConfig('logging.debug.conf')
+    else:
+        logging.config.fileConfig('logging.conf')
 
 
 def make_mastodon_stream():

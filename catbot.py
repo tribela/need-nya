@@ -133,6 +133,10 @@ class CatBotMastodonListener(mastodon.StreamListener):
         for link in doc.xpath('//a'):
             link.drop_tree()
 
+        # Fix br into \n
+        for br in doc.xpath('//br'):
+            br.tail = '\n' + (br.tail or '')
+
         content = doc.text_content()
         return content.strip()
 

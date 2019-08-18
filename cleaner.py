@@ -1,3 +1,5 @@
+import logging
+import logging.config
 import os
 import time
 
@@ -14,6 +16,8 @@ MASTODON_CLIENT_SECRET = os.getenv('MASTODON_CLIENT_SECRET')
 MASTODON_ACCESS_TOKEN = os.getenv('MASTODON_ACCESS_TOKEN')
 
 DEBUG_MODE = 'DEBUG_MODE' in os.environ
+
+logger = logging.getLogger(__name__)
 
 
 def cleanup(api):
@@ -45,9 +49,8 @@ def cleanup(api):
 
                 count += 1
 
-                if DEBUG_MODE:
-                    print(f'{status.id}, {status.created_at}')
-                else:
+                logger.info(f'Deleting {status.id}')
+                if not DEBUG_MODE:
                     api.status_delete(status.id)
 
             statuses = api.fetch_previous(statuses)
@@ -55,7 +58,16 @@ def cleanup(api):
         print(f'Removed {count} statuses')
 
 
+def set_logger():
+    if DEBUG_MODE:
+        logging.config.fileConfig('logging.debug.conf')
+    else:
+        logging.config.fileConfig('logging.conf')
+
+
 def main():
+    set_logger()
+
     api = mastodon.Mastodon(
         api_base_url=MASTODON_API_BASE_URL,
         client_id=MASTODON_CLIENT_KEY,

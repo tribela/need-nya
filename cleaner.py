@@ -19,27 +19,40 @@ DEBUG_MODE = 'DEBUG_MODE' in os.environ
 def cleanup(api):
     me = api.account_verify_credentials()
     now = datetime.now().astimezone(timezone.utc)
+    count = 0
 
-    statuses = api.account_statuses(me.id, min_id=0, limit=40)
-    while True:
-        if not statuses:
-            return
+    try:
+        statuses = api.account_statuses(me.id, min_id=0, limit=40)
+        while True:
+            if not statuses:
+                raise StopIteration
 
-        for status in reversed(statuses):
-            timedelta = now - status.created_at
+            for status in reversed(statuses):
+                timedelta = now - status.created_at
 
-            if timedelta.days < THRESHOLD_DAYS:
-                return
+                if timedelta.days < THRESHOLD_DAYS:
+                    raise StopIteration
 
-            if status.application.name != APP_NAME:
-                continue
+                if status.application.name != APP_NAME:
+                    continue
 
-            if DEBUG_MODE:
-                print(f'{status.id}, {status.created_at}')
-            else:
-                api.status_delete(status.id)
+                if (
+                    status.reblogs_count or
+                    status.replies_count or
+                    status.favourites_count
+                ):
+                    continue
 
-        statuses = api.fetch_previous(statuses)
+                count += 1
+
+                if DEBUG_MODE:
+                    print(f'{status.id}, {status.created_at}')
+                else:
+                    api.status_delete(status.id)
+
+            statuses = api.fetch_previous(statuses)
+    except StopIteration:
+        print(f'Removed {count} statuses')
 
 
 def main():

@@ -38,6 +38,7 @@ def cleanup(api):
                     raise StopIteration
 
                 if status.application.name != APP_NAME:
+                    logger.debug(f'Skipping {status.id} {status.created_at} (not need_nya)')
                     continue
 
                 if (
@@ -45,6 +46,7 @@ def cleanup(api):
                     status.replies_count or
                     status.favourites_count
                 ):
+                    logger.debug(f'Skipping {status.id} {status.created_at} (interacted)')
                     continue
 
                 count += 1
@@ -55,7 +57,7 @@ def cleanup(api):
 
             statuses = api.fetch_previous(statuses)
     except StopIteration:
-        print(f'Removed {count} statuses')
+        logger.info(f'Removed {count} statuses')
 
 
 def set_logger():

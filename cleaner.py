@@ -78,8 +78,8 @@ def main():
     )
     while True:
         cleanup(api)
-        # sleep 1 hour
-        time.sleep(1 * 60 * 60)
+        # sleep 1 day
+        time.sleep(24 * 60 * 60)
 
 
 if __name__ == '__main__':

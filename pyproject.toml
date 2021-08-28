@@ -1,0 +1,18 @@
+[tool.poetry]
+name = "need-nya"
+version = "0.1.0"
+description = ""
+authors = ["Jeong Arm <kjwonmail@gmail.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.8"
+requests = ">=2.20.0"
+"Mastodon.py" = ">=1.3.1"
+lxml = "*"
+
+[tool.poetry.dev-dependencies]
+honcho = "*"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

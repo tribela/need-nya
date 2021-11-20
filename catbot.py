@@ -93,13 +93,13 @@ class CatBotMastodonListener(mastodon.StreamListener):
             logger.error(e)
             return
         try:
-            url = catpic['image_url']
+            url = catpic['original']['url']
             self.logger.debug(url)
             f = BytesIO(requests.get(url).content)
             media = self.api.media_post(f, mimetypes.guess_type(url)[0])
         except Exception as e:
             self.logger.error(e)
-            url = catpic['fixed_height_downsampled_url']
+            url = catpic['downsized']['url']
             self.logger.debug(url)
             f = BytesIO(requests.get(url).content)
             media = self.api.media_post(f, mimetypes.guess_type(url)[0])
@@ -166,7 +166,7 @@ def get_random_catpic():
         raise ApiError(resp.json()['message'])
 
     json_result = resp.json()
-    url = json_result['data']
+    url = json_result['data']['images']
     return url
 
 

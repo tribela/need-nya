@@ -4,7 +4,9 @@ import logging.config
 import mimetypes
 import os
 import re
+import time
 
+from collections import defaultdict
 from io import BytesIO
 
 from lxml import html
@@ -26,12 +28,40 @@ GIPHY_API_KEY = os.getenv('GIPHY_API_KEY')
 PATTERN = re.compile(
     r'(?:고양이|야옹이|냐옹이|냥이).*필요|'
     r'우울[해하한]|냐짤|(?:죽고\s*싶|살기\s*싫)[어네다]')
+ADDICT_PATTERN = re.compile(r'필요$')
 
 logger = logging.getLogger(__name__)
 
 
 class ApiError(Exception):
     pass
+
+
+class AddictChecker(object):
+    def __init__(self, limit=2, cooldown=60*60):
+        self._addict = defaultdict(list)
+        self.limit = limit
+        self.cooldown = cooldown
+
+    def is_addict(self, user_id):
+        if len(self._addict[user_id]) > self.limit:
+            return True
+        else:
+            return False
+
+    def add(self, user_id):
+        self._addict[user_id].append(time.time())
+        self.cleanup()
+
+    def cleanup(self):
+        now = time.time()
+        for user_id in self._addict.keys():
+            self._addict[user_id] = [
+                t for t in self._addict[user_id] if t > now - self.cooldown
+            ]
+
+            if self._addict[user_id] == []:
+                del self._addict[user_id]
 
 
 class CatBotMastodonListener(mastodon.StreamListener):
@@ -42,6 +72,7 @@ class CatBotMastodonListener(mastodon.StreamListener):
         self.logger = logging.getLogger('catbot-mastodon')
         self.me = self.api.account_verify_credentials()
         self.logger.info(f'I am {self.me["acct"]}')
+        self.addict_checker = AddictChecker()
 
     def on_update(self, status):
         self.handle_status(status)
@@ -81,6 +112,13 @@ class CatBotMastodonListener(mastodon.StreamListener):
 
         matched = PATTERN.search(content)
         if matched:
+            if ADDICT_PATTERN.search(content):
+                self.addict_checker.add(account['id'])
+                if self.addict_checker.is_addict(account['id']):
+                    self.logger.info(f'{account["acct"]} is an addict.')
+                    self.reply_with_addict_message(status)
+                    return
+
             self.logger.info(f'Repling to {account["acct"]}')
             self.reply_with_catpic(status)
         else:
@@ -124,6 +162,23 @@ class CatBotMastodonListener(mastodon.StreamListener):
                 media_ids=(media,),
                 visibility=visibility
             )
+
+    def reply_with_addict_message(self, status):
+        # Same privacy except for public.
+        visibility = status['visibility']
+        if visibility == 'public':
+            visibility = 'unlisted'
+
+        if DEBUG_MODE:
+            pprint(status['id'])
+        else:
+            acct = status['account']['acct']
+            self.api.status_post(
+                f"@{acct} 당신은 야짤 중독입니다...",
+                in_reply_to_id=status['id'],
+                visibility=visibility
+            )
+
 
     @staticmethod
     def get_plain_content(status):

@@ -1,6 +1,7 @@
 import functools
 import logging
 import logging.config
+import math
 import mimetypes
 import os
 import re
@@ -134,13 +135,13 @@ class CatBotMastodonListener(mastodon.StreamListener):
             url = catpic['original']['url']
             self.logger.debug(url)
             f = BytesIO(requests.get(url).content)
-            media = self.api.media_post(f, mimetypes.guess_type(url)[0])
+            media = self.upload_media(f, mimetypes.guess_type(url)[0])
         except Exception as e:
             self.logger.error(e)
             url = catpic['downsized']['url']
             self.logger.debug(url)
             f = BytesIO(requests.get(url).content)
-            media = self.api.media_post(f, mimetypes.guess_type(url)[0])
+            media = self.upload_media(f, mimetypes.guess_type(url)[0])
 
         # Same privacy except for public.
         visibility = status['visibility']
@@ -179,6 +180,18 @@ class CatBotMastodonListener(mastodon.StreamListener):
                 visibility=visibility
             )
 
+    def upload_media(self, *args, **kwargs):
+        media = self.api.media_post(*args, **kwargs)
+        try_count = 0
+        while 'url' not in media or media.url is None:
+            try_count += 1
+            sleep_duration = math.log2(1 + try_count)
+            time.sleep(sleep_duration)
+            try:
+                media = self.api.media(media)
+            except:
+                raise
+        return media
 
     @staticmethod
     def get_plain_content(status):

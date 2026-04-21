@@ -1,5 +1,5 @@
 FROM ghcr.io/astral-sh/uv AS uv
-FROM python:3.9
+FROM python:3.14
 
 ENV PYTHON_UNBUFFERED=1
 ENV PYTHONFAULTHANDLER=1

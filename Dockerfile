@@ -14,3 +14,5 @@ ADD . /src
 
 RUN useradd -m user
 USER user
+
+CMD ["uv", "run", "python", "catbot.py"]
